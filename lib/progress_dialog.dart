@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-
+import 'dart:async';
+import 'dart:io';
 enum ProgressDialogType { Normal, Download }
+enum ShowStatus{Hide, IsShowing, IsShow}
 
 String _dialogMessage = "Loading...";
 double _progress = 0.0, _maxProgress = 100.0;
@@ -19,6 +21,7 @@ TextStyle _progressTextStyle = TextStyle(
 double _dialogElevation = 8.0, _borderRadius = 8.0;
 Color _backgroundColor = Colors.white;
 Curve _insetAnimCurve = Curves.easeInOut;
+ShowStatus _showStatus = ShowStatus.Hide;
 
 Widget _progressWidget = Image.asset(
   'assets/double_ring_loading_io.gif',
@@ -104,14 +107,32 @@ class ProgressDialog {
   }
 
   Future<bool> hide() {
+    if(_showStatus == ShowStatus.Hide){
+      return Future.value(false);
+    }
+
+    if(_showStatus != ShowStatus.IsShow){
+      new Timer(new Duration(milliseconds: 100), (){
+        _showStatus = ShowStatus.Hide;
+        Navigator.of(_dismissingContext).pop(true);
+      });
+    }
+
+    return Future.value(true);
+
+    _showStatus = ShowStatus.Hide;
+    Navigator.of(_dismissingContext).pop(true);
+
+
     if (_isShowing) {
       try {
         _isShowing = false;
         Navigator.of(_dismissingContext).pop(true);
         if (_showLogs) debugPrint('ProgressDialog dismissed');
         return Future.value(true);
-      } catch (_) {
-         _isShowing = true;
+      } catch (e) {
+        print(e);
+        _isShowing = true;
         return Future.value(false);
       }
     } else {
@@ -120,14 +141,14 @@ class ProgressDialog {
     }
   }
 
-  void show() async{
+  void show() {
     if (!_isShowing) {
       _dialog = new _Body();
       _isShowing = true;
-
+      _showStatus = ShowStatus.IsShowing;
       if (_showLogs) debugPrint('ProgressDialog shown');
 
-      await showDialog<dynamic>(
+      showDialog<dynamic>(
         context: _context,
         barrierDismissible: false,
         builder: (BuildContext context) {
@@ -147,7 +168,9 @@ class ProgressDialog {
                 child: _dialog),
           );
         },
-      );
+      ).then((value){
+        _showStatus= ShowStatus.IsShow;
+      });
     } else {
       if (_showLogs) debugPrint("ProgressDialog already shown/showing");
     }
